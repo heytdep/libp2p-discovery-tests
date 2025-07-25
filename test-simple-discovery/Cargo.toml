@@ -1,0 +1,15 @@
+[package]
+name = "test-simple-discovery"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio   = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+futures = "0.3"
+anyhow  = "1"
+libp2p = { version = "0.56", default-features = false, features = [
+  "tokio",
+  "quic",
+  "dns",
+  "gossipsub",
+] }
