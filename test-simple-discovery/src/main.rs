@@ -35,7 +35,11 @@ fn add_explicit_from_addr(swarm: &mut Swarm<GossipsubBehaviour>, addr: &Multiadd
 async fn main() -> Result<()> {
     let mut swarm: Swarm<GossipsubBehaviour> = libp2p::SwarmBuilder::with_new_identity()
         .with_tokio()
-        .with_quic()
+        .with_tcp(
+            libp2p::tcp::Config::default().nodelay(true),
+            libp2p::noise::Config::new,
+            libp2p::yamux::Config::default,
+        )?
         .with_dns()?
         .with_behaviour(|kp: &Keypair| {
             let cfg = gossipsub::ConfigBuilder::default()
@@ -50,7 +54,7 @@ async fn main() -> Result<()> {
     let local_peer_id = *swarm.local_peer_id();
     println!("Local peer id: {local_peer_id}");
 
-        swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
+    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
     if let Some(addr_str) = env::args().nth(1) {
         let addr: Multiaddr = addr_str.parse()?;
@@ -86,7 +90,6 @@ async fn main() -> Result<()> {
                     SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                         println!("ConnectionEstablished to {peer_id} via {endpoint:?}");
                     }
-                    
                     SwarmEvent::Behaviour(GossipsubEvent::Subscribed { peer_id, topic }) => {
                         println!("{peer_id} subscribed to {topic}");
                     }
