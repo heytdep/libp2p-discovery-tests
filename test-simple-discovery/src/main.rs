@@ -9,11 +9,27 @@ use libp2p::{
         MessageAuthenticity,
     },
     identity::Keypair,
-    swarm::{dial_opts::DialOpts, SwarmEvent},
-    Multiaddr, Swarm,
+    multiaddr::Protocol,
+    swarm::SwarmEvent,
+    Multiaddr, PeerId, Swarm,
 };
 use std::env;
 use tokio::time::{interval, Duration};
+
+fn add_explicit_from_addr(swarm: &mut Swarm<GossipsubBehaviour>, addr: &Multiaddr) {
+    let mut maybe_peer: Option<PeerId> = None;
+    for p in addr.iter() {
+        if let Protocol::P2p(peer) = p {
+            maybe_peer = Some(peer);
+        }
+    }
+    if let Some(peer) = maybe_peer {
+        swarm.behaviour_mut().add_explicit_peer(&peer);
+        println!("add explicit peer: {peer}");
+    } else {
+        eprintln!("can't add explicit peer");
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -34,13 +50,13 @@ async fn main() -> Result<()> {
     let local_peer_id = *swarm.local_peer_id();
     println!("Local peer id: {local_peer_id}");
 
-    swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
+        swarm.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse()?)?;
 
     if let Some(addr_str) = env::args().nth(1) {
         let addr: Multiaddr = addr_str.parse()?;
         println!("Dialing {addr}");
-        let opts = DialOpts::unknown_peer_id().address(addr).build();
-        swarm.dial(opts)?;
+        add_explicit_from_addr(&mut swarm, &addr);
+        swarm.dial(addr)?;
     }
 
     let topic = Topic::new("demo");
@@ -70,12 +86,7 @@ async fn main() -> Result<()> {
                     SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                         println!("ConnectionEstablished to {peer_id} via {endpoint:?}");
                     }
-                    SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                        eprintln!("outgoing error to {:?}: {error:?}", peer_id);
-                    }
-                    SwarmEvent::IncomingConnectionError { send_back_addr, error, .. } => {
-                        eprintln!("incoming error from {send_back_addr}: {error:?}");
-                    }
+                    
                     SwarmEvent::Behaviour(GossipsubEvent::Subscribed { peer_id, topic }) => {
                         println!("{peer_id} subscribed to {topic}");
                     }
